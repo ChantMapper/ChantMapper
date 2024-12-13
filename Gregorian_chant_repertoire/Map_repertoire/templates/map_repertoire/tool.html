@@ -1,0 +1,462 @@
+<!-- Page with tool itself = request form + results -->
+{% extends "base.html" %}
+
+{% block side_buttons %}
+  {% if request.user.is_authenticated %}
+    <div class="container ms-4 mt-3 mr" style="float:right">
+      <button type="button" class="btn btn-outline-secondary" onclick="location.href = '/map_repertoire/datasets'" style="float:right">Manage your datasets</button> <br><br>
+    </div>
+  {% endif %}
+{% endblock %}
+
+
+
+{% block content %}
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+
+<!-- Request form window -->
+<div class="input-form">
+<div class="container ms-4 mt-3 mr-2 border border-secondary rounded">
+  <h3>Request form</h3> <br>
+  <form method="post">
+      {% csrf_token %}
+      <div id="feastSelection">
+        <label for="{{ form.feast.id_for_label }}">Feast(s):</label>
+        <div class="ms-3">
+          {{ form.feast }}
+        </div>
+      </div>
+      <br>
+      <div id="allSelection">
+        <label for="{{ form.all.id_for_label }}">Select complete repertoire for feast:</label>
+        <div class="ms-3">
+          {{ form.all }}
+        </div>
+      </div>
+      <div id="officeSelection">
+        <label for="{{ form.office.id_for_label }}">or select only particular office:</label>
+        <div class="ms-3">
+          {{ form.office }}
+        </div>
+      </div>
+      <br>
+      <div id="algoSelection">
+        <label for="{{ form.community_detection_algorithm.id_for_label }}">Community detection algorithm:</label>
+        <div class="ms-3">
+          {{ form.community_detection_algorithm }}
+        </div>
+      </div>
+      <br>
+      <div id="metricSelection">
+        <label for="{{ form.metric.id_for_label }}">Metric:</label>
+        <div class="ms-3">
+          {{ form.metric }}
+        </div>
+      </div>
+      <div id="numberOfTopicsSelection">
+        <label for="{{ form.number_of_topics.id_for_label }}">Number of topics:</label>
+        <div class="ms-3">
+          {{ form.number_of_topics }}
+        </div>
+      </div>
+      <div id="officePolicySelection">
+        <label for="{{ form.office_policy.id_for_label }}">How to work with membership of office:</label>
+        <div class="ms-3">
+          {{ form.office_policy }}
+        </div>
+      </div>
+      <br>
+      <div id="datasetSelection">
+        <label for="{{ form.datasets_own.id_for_label }}">Dataset(s) to be used:</label>
+        <div class="ms-3">
+          {{ form.datasets_own }}
+        </div>
+        <div class="ms-3 mt-1">
+          <button type="button" class="btn btn-outline-secondary" id="show_pub_datasets" style="float:inline-end;">Show other public datasets</button>
+          <div id="public_datasets" class="mt-1">
+            <label for="{{ form.datasets_public.id_for_label}}">Other public datasets:</label>
+              <div class="ms-3">
+                {{ form.datasets_public }}
+              </div>
+            <button type="button" class="btn btn-outline-secondary" id="hide_pub_datasets" style="float:inline-end;">Hide other public datasets</button>   
+          </div>
+          <br> 
+          {% if request.session.dataset_error_message.strip %}
+            <p style="color: red;"> <b> {{ request.session.dataset_error_message }} </b> </p>
+          {% else %}
+            <i>(At least one dataset must be selected!)</i> <br>
+          {% endif %}
+        </div>
+      </div>
+      <br>
+      <input type="submit" value="Show" class="btn btn-outline-secondary">
+  </form> 
+  <br>
+</div>
+</div>
+{% endblock %}
+
+
+{% block result %}
+  <!-- Overview -->
+  <div class="container ms-4">
+    <br><br>
+    <h4> Selected feasts: </h4> 
+    <h5>
+      <div class="ms-3">
+        {% for feast in feasts %} 
+          {{ feast }} <br>
+        {% endfor %}
+      </div>
+    </h5>
+    <h4> Significance level: {{ sig_level }} </h4> <br>
+  </div>
+
+  <div class="container-xxl ms-4 mb-0">
+    <!-- Nav tabs - selection of view -->
+    <ul class="nav nav-tabs" id="myTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="table-tab-btn" data-bs-toggle="tab" data-bs-target="#table" type="button" role="tab">Table view</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="com-map-tab-btn" data-bs-toggle="tab" data-bs-target="#community" type="button" role="tab">Community map view</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="cen-map-tab-btn" data-bs-toggle="tab" data-bs-target="#century" type="button" role="tab">Century map view</button>
+      </li>
+    </ul>
+        
+    <!-- Tab panes - content of each view specified -->
+    <!-- Table view -->
+    <div class="tab-content">
+      <div id="table" class="tab-pane fade show active" role="tabpanel">
+        <br>
+        {% if tab_data %}
+          <button type="button" href="#/" class="btn btn-outline-secondary btn-sm"  data-collapsible-expand-all>Show all</button>
+          <button type="button" href="#/" class="btn btn-outline-secondary btn-sm"  data-collapsible-collapse-all>Hide all</button>
+          <br>
+
+          <table class="mainTable" border='1'>
+            <tbody>
+              <tr>
+                <th bgcolor="grey"></th>
+                {% for com in tab_data.head %}
+                  <th bgcolor={{com.color}} style="color:white;"> {{ com.com }} <br> {{ com.sources }} </th>
+                {% endfor %}
+              </tr>
+
+              {% for office, office_chants in tab_data.body.items %}
+                <tr>
+                  <td> <b> {{ office }} </b> </td>
+                    <!-- iteration over cells -->
+                    {% for com_chants_dicts in office_chants %} 
+                      <td data-collapsible-container>
+                        <table>      
+                            {% for uncoll_chant in com_chants_dicts.uncollapsed %}
+                              <tr>
+                                {{ uncoll_chant.incipit }}
+                                <a href='https://cantusindex.org/id/{{ uncoll_chant.cantus_id }}'  target="_blank" rel="noopener noreferrer">{{ uncoll_chant.cantus_id }}</a> {{ uncoll_chant.freq }} <br>
+                              </tr>
+                            {% endfor %}
+                        </table>
+                        {% if com_chants_dicts.collapsed %}
+                          <div data-collapsible class="collapsible collapsed">
+                            <div class="collapsible-inner">
+                              <table>
+                                {% for coll_chant in com_chants_dicts.collapsed %}
+                                <tr>
+                                  {{ coll_chant.incipit }}
+                                  <a href='https://cantusindex.org/id/{{ coll_chant.cantus_id }}'  target="_blank" rel="noopener noreferrer">{{ coll_chant.cantus_id }}</a> {{ coll_chant.freq }} <br>
+                                </tr>
+                              {% endfor %}
+                              </table>
+                            </div>
+                          </div>
+                          <a href="#/" data-collapsible-trigger>Show more</a>
+                        {% endif %}
+                      </td>
+                    {% endfor %}
+                </tr>
+              {% endfor %}
+          
+            <tr>
+              {% if tab_data.tail %}
+                <td>Sources</td>
+                  {% for com in tab_data.tail %}
+                      <td> 
+                        {% for s in com %}
+                        <a href='{{ s.source_id }}'  target="_blank" rel="noopener noreferrer">{{ s.siglum }}</a> <br>
+                        {% endfor %}
+                      </td>
+                  {% endfor %}
+              {% endif %}
+            </tr>
+          
+            </tbody>
+          </table>
+          <br><br>
+
+        {% else %}
+          <h3> No data for given request </h3> <br>
+        {% endif %}
+      </div>
+      <!-- Community map -->
+      <div id="community" class="tab-pane fade" role="tabpanel">
+        {% if map_data.no_prov_sources %}
+          <div id="missing_provenance" class="mt-3 mb-3">
+            <h5> Sourses with unknown provenances: </h5>
+            <div class="ms-3">
+              {% for source in map_data.no_prov_sources_siglum %}
+                <a href='{{ source.id }}'  target="_blank" rel="noopener noreferrer">{{ source.siglum }}</a> <br>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        <container class="mt-1 mb-0">
+          <p style="float: right;"> △ - secular | ▢ - monastic | 〇 - unknown </p>
+        </container>
+
+        <div id="com_map" class="mb-3 mt-1"></div>
+      </div>
+
+      <!-- Century view -->
+      <div id="century" class="tab-pane fade" role="tabpanel">
+        {% if map_data.no_prov_sources %}
+          <div id="missing_provenance" class="mt-3 mb-3">
+            <h5> Sourses with unknown provenances: </h5>
+            <div class="ms-3">
+              {% for source in map_data.no_prov_sources %}
+                <a href='{{ source }}'  target="_blank" rel="noopener noreferrer">{{ source }}</a> <br>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+
+        <container class="mt-3 mb-0">
+          <p style="float: right;"> △ - secular | ▢ - monastic | 〇 - unknown </p>
+        </container>
+
+        <div id="cen_map" class="mb-3 mt-1"></div>
+      </div>
+      
+    </div>
+
+    <div class="container ml-0">
+      <h4>See a mistake? <button type="button" class="btn btn-outline-secondary" onclick="location.href = '/map_repertoire/contact'">Contact us</button>
+      </h4>
+    </div>
+  </div>
+
+  <!-- pass data from djnago context to js script part -->
+  {{ map_data|json_script:"map_data" }}
+  <script>
+    // Get results maps
+    const map_data = JSON.parse(document.getElementById('map_data').textContent);
+    var maps = getMaps(map_data); 
+    var com_map = maps.com_map; 
+    var cen_map = maps.cen_map;
+
+    // Ensure map in tab is ready to be displayed
+    var comTab = document.getElementById('com-map-tab-btn');
+    comTab.addEventListener("shown.bs.tab", function (e) {
+        com_map.invalidateSize();
+    })
+    var cenTab = document.getElementById('cen-map-tab-btn');
+    cenTab.addEventListener("shown.bs.tab", function (e) {
+        cen_map.invalidateSize();
+    })
+    
+
+    // Dynamic changes in displaying form (to ensure that if some feast is selected, than request correct)
+    // Louvein      
+    var LouveinChecked = document.getElementById('id_community_detection_algorithm_0');
+    LouveinChecked.addEventListener('click', function() {
+            document.getElementById('metricSelection').style.display = 'inline';
+            document.getElementById('numberOfTopicsSelection').style.display = 'none';
+            document.getElementById('officePolicySelection').style.display = 'none';
+    })
+    // CAT
+    var CATChecked = document.getElementById('id_community_detection_algorithm_1');
+    CATChecked.addEventListener('click', function() {
+            document.getElementById('metricSelection').style.display = 'none';
+            document.getElementById('numberOfTopicsSelection').style.display = 'none';
+            document.getElementById('officePolicySelection').style.display = 'inline';
+    })
+    // Topic model
+    var TopicChecked = document.getElementById('id_community_detection_algorithm_2');
+    TopicChecked.addEventListener('click', function() { 
+        document.getElementById('metricSelection').style.display = 'none';
+        document.getElementById('numberOfTopicsSelection').style.display = 'inline';
+        document.getElementById('officePolicySelection').style.display = 'none';
+    });
+
+    // to preserve choices after Show (refresh)
+    if (document.getElementById('id_community_detection_algorithm_2').checked) {
+        document.getElementById('metricSelection').style.display = 'none';
+        document.getElementById('numberOfTopicsSelection').style.display = 'inline';
+        document.getElementById('officePolicySelection').style.display = 'none';
+    }
+    else if (document.getElementById('id_community_detection_algorithm_1').checked) {
+        document.getElementById('metricSelection').style.display = 'none';
+        document.getElementById('numberOfTopicsSelection').style.display = 'none';
+        document.getElementById('officePolicySelection').style.display = 'inline';
+    }
+    else if (document.getElementById('id_community_detection_algorithm_0').checked) {
+        document.getElementById('metricSelection').style.display = 'inline';
+        document.getElementById('numberOfTopicsSelection').style.display = 'none';
+        document.getElementById('officePolicySelection').style.display = 'none';
+    }
+    
+
+    // Set All options as checked as default
+    if (!document.getElementById('id_office_0').checked & !document.getElementById('id_office_1').checked
+        & !document.getElementById('id_office_2').checked & !document.getElementById('id_office_3').checked) 
+        {
+          document.getElementById('id_all_0').checked = true;
+        }
+
+    // Dynamic check and uncheck of office selection
+    var AllChcekbox = document.getElementById('id_all_0');
+    AllChcekbox.addEventListener('click', function() {
+      document.getElementById('id_office_0').checked = false;
+      document.getElementById('id_office_1').checked = false;
+      document.getElementById('id_office_2').checked = false;
+      document.getElementById('id_office_3').checked = false;
+      AllChcekbox.checked = true;
+    });
+    var VChcekbox = document.getElementById('id_office_0');
+    VChcekbox.addEventListener('click', function() {
+      document.getElementById('id_all_0').checked = false;
+    });
+    var MChcekbox = document.getElementById('id_office_1');
+    MChcekbox.addEventListener('click', function() {
+      document.getElementById('id_all_0').checked = false;
+    });
+    var LChcekbox = document.getElementById('id_office_2');
+    LChcekbox.addEventListener('click', function() {
+      document.getElementById('id_all_0').checked = false;
+    });
+    var V2Chcekbox = document.getElementById('id_office_3');
+    V2Chcekbox.addEventListener('click', function() {
+      document.getElementById('id_all_0').checked = false;
+    });
+
+    // Show and Hide other public datasets
+    var OtherDatasets = document.getElementById('public_datasets');
+    OtherDatasets.style.display = "none";
+
+    var ShowPubDatasets = document.getElementById('show_pub_datasets');
+    var HidePubDatasets = document.getElementById('hide_pub_datasets');
+
+    ShowPubDatasets.addEventListener('click', function() {
+      OtherDatasets.style.display = "block";
+      ShowPubDatasets.style.display = "none";
+      HidePubDatasets.style.display = "block";
+    });
+
+    HidePubDatasets.addEventListener('click', function() {
+      OtherDatasets.style.display = "none";
+      ShowPubDatasets.style.display = "block";
+      HidePubDatasets.style.display = "none";
+    });
+    
+    // Ensure other datasets are visible when some is checked
+    var OtherId = "id_datasets_public_";
+    var OtherSets = document.querySelectorAll(`[id^=${OtherId}]`);
+    for (const otherDs of OtherSets) {
+        if (otherDs.checked) {
+          OtherDatasets.style.display = "block";
+          ShowPubDatasets.style.display = "none";
+          HidePubDatasets.style.display = "block";
+        }
+    }
+
+
+    // Collapsibility of table
+    document.addEventListener('DOMContentLoaded', function () {
+    var MainTable = document.getElementsByClassName('mainTable')[0];
+    
+    // Get all elements with data-collapsible-trigger attribute
+    var TriggerElements = MainTable.querySelectorAll('[data-collapsible-trigger]');
+
+    // Iterate through each trigger element
+    TriggerElements.forEach(function (trigger) {
+        // Add click event listener to each trigger
+        trigger.addEventListener('click', function () {
+            // Find the closest parent with data-collapsible-container attribute
+            var container = this.closest('[data-collapsible-container]');
+
+            // Find the collapsible element within the container
+            var collapsible = container.querySelector('[data-collapsible]');
+
+            // Toggle the collapsed class on the collapsible element
+            collapsible.classList.toggle('collapsed');
+
+            // Toggle the text content of the trigger
+            var triggerText = collapsible.classList.contains('collapsed') ? 'Show more' : 'Hide';
+            this.textContent = triggerText;
+        });
+    });
+
+    var expandAllTrigger = document.querySelectorAll('[data-collapsible-expand-all]');
+    expandAllTrigger.forEach(function (trigger) {
+        trigger.addEventListener('click', function () {
+        var collabsibleContainers = MainTable.querySelectorAll('[data-collapsible-container]');
+        collabsibleContainers.forEach(function (container) {
+            var collapsibleElements = container.querySelectorAll('[data-collapsible]');
+            collapsibleElements.forEach(function (collapsibleEl) {
+            collapsibleEl.classList.remove('collapsed');
+            });
+            var collapsibleTriggers = container.querySelectorAll('[data-collapsible-trigger]');
+            collapsibleTriggers.forEach(function (triggerEl) {
+            triggerEl.textContent = 'Hide';
+            });
+        });
+        });
+    });
+
+    var collapseAllTrigger = document.querySelectorAll('[data-collapsible-collapse-all]');
+    collapseAllTrigger.forEach(function (trigger) {
+        trigger.addEventListener('click', function () {
+        var collabsibleContainers = MainTable.querySelectorAll('[data-collapsible-container]');
+        collabsibleContainers.forEach(function (container) {
+            var collapsibleElements = container.querySelectorAll('[data-collapsible]');
+            collapsibleElements.forEach(function (collapsibleEl) {
+            collapsibleEl.classList.add('collapsed');
+            });
+            var collapsibleTriggers = container.querySelectorAll('[data-collapsible-trigger]');
+            collapsibleTriggers.forEach(function (triggerEl) {
+            triggerEl.textContent = 'Show more';
+            });
+          });
+        });
+      });
+    });
+
+
+    // Autocomplete in feasts selection
+    $(document).ready(function() {
+        $('.feasts_select').select2({
+            placeholder: "Select feast(s)", 
+            allowClear: true
+        });
+    });
+
+  </script>
+
+  <!-- Custom CSS for vertical stacking of options in feast_select -->
+  <style>
+    .select2-results__option {
+        display: block;      /* Force each option to be displayed on a separate line */
+    }
+  </style>
+{% endblock %}

@@ -1,0 +1,44 @@
+<!-- Home page / Landing page -->
+{% extends "base.html" %}
+
+    {% block side_buttons %}
+      <div class="container ms-4 mt-3 mr" style="float:right">
+        {% if not request.user.is_authenticated %}
+          <button type="button" class="btn btn-outline-secondary" onclick="location.href = '/map_repertoire/login'" style="float:right">Login</button> <br><br>
+          <button type="button" class="btn btn-outline-secondary" onclick="location.href = '/map_repertoire/register'" style="float:right">Create account</button> <br><br>
+        {% endif %}
+        
+        {% if request.user.is_authenticated %}
+          <button type="button" class="btn btn-outline-secondary" onclick="location.href = '/map_repertoire/logout'" style="float:right">Logout</button> <br>
+        {% endif %}
+      </div>
+    {% endblock %}
+
+    {% block content %}
+    <div class="container ms-4 mt-3 mr-1">
+      <h2>Welcome!</h2>
+      <p> Here we provide a tool for musicologists to help them discover 
+          possible traditions in Gregorian chant repertoire as well as some hints for possible 
+          transimissions of repertoire. </p>
+      <button type="button" class="btn btn-outline-secondary" onclick="location.href = '/map_repertoire/tool'" style="float:left">Tool</button> <br> <br>
+    </div>
+    {% endblock %}
+    
+
+    {% block map %}
+      <div class="container ms-4 mt-3 mb-3">
+        <h4>Map of all provenances included in this tool:</h4>
+          
+          <div id="com_map"> </div>
+      </div>
+      <div class="container ms-4 mt-3 mb-3">
+        <h5>Missing some uploaded source in map? Please, help to fix that <button type="button" class="btn btn-outline-secondary" onclick="location.href = '/map_repertoire/geography'">here</button> .</h5>
+      </div>
+    <!-- pass data from djnago context to js script part for map creation -->
+      {{ map_data_all_informed|json_script:"map_data_all_informed" }}
+      <script>
+        const map_data_all_informed = JSON.parse(document.getElementById('map_data_all_informed').textContent);
+        var com_map = getMapOfAllInformed(map_data_all_informed);
+      </script>
+    
+    {% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block side_buttons %}
+  <div class="container ms-4 mt-3 mr" style="float:right">
+    <button type="button" class="btn btn-outline-secondary" style="float:right" onclick="location.href = '/map_repertoire/tool'">Back to tool</button>
+  </div>
+{% endblock %}
+
+{% block content %}
+  {% if request.user.is_authenticated %}
+  <div class="container ms-4 mt-3">
+    
+    <h2> Unknown provenance details </h2>
+    First please try to match problematic provenances with those already existing in system database. <br>
+    If there is no similar existing record, then, please, add coordinates. <br> <br>
+
+      <div class="container ms-4 mt-3 mr-4 border border-secondary rounded" style="overflow: hidden;">
+        {% if prov_form %}
+          <h5> Provenances with no geography info: </h5>
+
+          <form method="post">
+            {% csrf_token %}
+            <b>{{ actual_prov }}</b>
+
+            <div class="container ms-2 mr-5" id="provenanceSelection">
+              <label for="{{ prov_form.matched_info.id_for_label }}"> is the same place as:</label>
+              <div class="ms-3 overflow-scroll" style="max-height: 180px;">
+                {{ prov_form.matched_info }}
+              </div>
+              <br>
+              <label for="{{ prov_form.new_coords.id_for_label }}"> does not have equivalent in database: </label>
+              <div class="ms-3">
+                {{ prov_form.new_coords }}
+              </div>
+              <div id="lat_long_prov" class="container ms-4 mr-4">
+                <label for="{{ last_set_form.lat.id_for_label }}">Latitude:</label>
+                <div class="ms-3">
+                  {{ prov_form.lat }}
+                </div>
+                <label for="{{ last_set_form.long.id_for_label }}">Longitude:</label>
+                <div class="ms-3">
+                  {{ prov_form.long }}
+                </div>
+              </div>
+              <br>
+            </div>
+            {% if error_message %}
+              <div class="container ms-4 mr-4">
+                <p style="color: red;">{{ error_message }}</p>
+              </div>
+            {% endif %}
+
+            <input type="submit" value="Skip" name="next" class="btn btn-outline-secondary" style="float: right; display: block; margin-left: 10px;">
+            <input type="submit" value="Add" name="add" class="btn btn-outline-secondary" style="float: right; display: block;">
+            <br> <br>
+            <p style="float: right; display: block;">(Please, be reasonably careful - your answer is authoritative and can be changed only by administrator.)</p>
+            <br> <br>
+          </form>
+      
+      {% else %}
+        <br>
+        <h5>There are no provenances with unknown coordinates in your last updated dataset or you did not upload dataset recently.</h5>
+        <br>
+      {% endif %}
+      
+    </div>
+  </div>
+  {% else %}
+    <div class="container ms-4 mt-3">
+      <h5> No access for not logged in users</h5>
+        This page is for registered users only to help with geography info. <br>
+        If you want to report missing provenance for some source, please, <a href='/map_repertoire/register'> create user account</a>  or <a href='/map_repertoire/login'>log in</a>.
+    </div>
+  {% endif %}
+  <script>
+
+    // Show lat and long only if needed
+    var NewCoords = document.getElementById('id_new_coords_0');
+    var LatLong = document.getElementById('lat_long_prov')
+    if (NewCoords.checked) {
+      LatLong.style.display = "block";
+    }
+    else {
+      LatLong.style.display = "none";
+    }
+
+    // Ensure that only Add or Matched are checked
+    // and that click changes cheked options correctly as if 
+    // it was too "radio parts"
+    var MatchedId = "id_matched_info";
+    var Suggs = document.querySelectorAll(`[id^=${MatchedId}]`);
+    for (Sugg of Suggs){
+        Sugg.addEventListener('click', function() {
+          NewCoords.checked = false;
+          LatLong.style.display = "none";
+        })
+    }
+    NewCoords.addEventListener('click', function() {
+      for (Sugg of Suggs){
+        Sugg.checked = false;
+      }
+      LatLong.style.display = "block";
+    })
+  </script>
+{% endblock %}
+
+{% block map %}
+      <div class="container ms-4 mt-3 mb-3">
+        <h4>Map of all provenances known to this tool:</h4>
+          
+          <div id="com_map"> </div>
+      </div>
+    <!-- pass data from djnago context to js script part for map creation -->
+      {{ map_data_all_basic|json_script:"map_data_all_basic" }}
+      <script>
+        const map_data_all_basic = JSON.parse(document.getElementById('map_data_all_basic').textContent);
+        var com_map = getMapOfAllBasic(map_data_all_basic);
+      </script>
+    
+{% endblock %}
